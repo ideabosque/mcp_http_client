@@ -2,7 +2,7 @@
 name = "mcp-http-client"
 version = "1.0.0"
 description = "Async HTTP client for interacting with an MCP server using JSON-RPC"
-authors = ["Idea Bosque <ideabosque@gmail.com>"]
+authors = [{name = "Idea Bosque"}]
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.8"
