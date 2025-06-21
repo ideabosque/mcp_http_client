@@ -1,15 +1,25 @@
-[project]
+[tool.poetry]
 name = "mcp-http-client"
 version = "0.0.1"
 description = "Async HTTP client for interacting with an MCP server using JSON-RPC"
-authors = [{name = "Idea Bosque"}]
+authors = ["Idea Bosque"]
 readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.8"
-dependencies = [
-    "aiohttp>=3.9.0"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+homepage = "https://github.com/ideabosque/mcp_http_client"
+repository = "https://github.com/ideabosque/mcp_http_client"
 
-[project.urls]
-Homepage = "https://github.com/ideabosque/mcp_http_client"
-Repository = "https://github.com/ideabosque/mcp_http_client"
+[tool.poetry.dependencies]
+python = ">=3.8"
+aiohttp = ">=3.9.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
