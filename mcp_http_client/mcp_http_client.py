@@ -114,6 +114,15 @@ class MCPHttpClient:
                         "parameters": tool.input_schema,
                     }
                 )
+        elif llm_name == "claude":
+            for tool in tools:
+                tools_for_llm.append(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.input_schema,
+                    }
+                )
         else:
             raise MCPError("LLM not supported")
         return tools_for_llm
