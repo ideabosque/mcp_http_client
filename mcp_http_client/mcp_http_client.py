@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __author__ = "bibow"
 
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -61,7 +62,22 @@ class MCPHttpClient:
                 headers=headers,
             ) as response:
                 response.raise_for_status()
-                result = await response.json()
+
+                # Try to parse as JSON regardless of content-type header
+                # Some servers return JSON with incorrect content-type headers
+                try:
+                    result = await response.json()
+                except aiohttp.ContentTypeError:
+                    # If JSON parsing fails due to content-type, try parsing text as JSON
+                    try:
+                        response_text = await response.text()
+                        result = json.loads(response_text)
+                    except json.JSONDecodeError:
+                        content_type = response.headers.get("content-type", "")
+                        raise MCPConnectionError(
+                            f"Server returned non-JSON response (content-type: {content_type}). "
+                            f"Response body: {response_text[:500]}..."
+                        )
 
                 if "error" in result:
                     raise MCPError(
