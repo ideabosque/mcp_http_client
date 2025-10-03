@@ -38,6 +38,18 @@ class MCPHttpClient:
         self._request_id += 1
         return self._request_id
 
+    def _clean_params(self, obj: Any) -> Any:
+        """Recursively remove attributes that are None or empty strings."""
+        if isinstance(obj, dict):
+            return {
+                k: self._clean_params(v)
+                for k, v in obj.items()
+                if v not in (None, "")
+            }
+        elif isinstance(obj, list):
+            return [self._clean_params(item) for item in obj]
+        return obj
+
     async def _send_request(self, method: str, params: Optional[Dict] = None) -> Dict:
         if not self.session:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -48,7 +60,9 @@ class MCPHttpClient:
             "method": method,
         }
         if params:
-            request_data["params"] = convert_decimal_to_number(params)
+            cleaned_params = self._clean_params(params)
+            if cleaned_params:
+                request_data["params"] = convert_decimal_to_number(cleaned_params)
 
         headers = {
             "Content-Type": "application/json",
