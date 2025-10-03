@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
+from silvaengine_utility import Utility
+
 from .models import MCPPrompt, MCPResource, MCPTool
 
 
@@ -58,7 +60,7 @@ class MCPHttpClient:
         try:
             async with self.session.post(
                 self.base_url,
-                json=request_data,
+                data=Utility.json_dumps(request_data),
                 headers=headers,
             ) as response:
                 response.raise_for_status()
