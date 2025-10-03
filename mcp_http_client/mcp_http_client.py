@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-from silvaengine_utility import Utility
+from silvaengine_utility import convert_decimal_to_number
 
 from .models import MCPPrompt, MCPResource, MCPTool
 
@@ -48,7 +48,7 @@ class MCPHttpClient:
             "method": method,
         }
         if params:
-            request_data["params"] = params
+            request_data["params"] = convert_decimal_to_number(params)
 
         headers = {
             "Content-Type": "application/json",
@@ -60,7 +60,7 @@ class MCPHttpClient:
         try:
             async with self.session.post(
                 self.base_url,
-                data=Utility.json_dumps(request_data),
+                json=request_data,
                 headers=headers,
             ) as response:
                 response.raise_for_status()
