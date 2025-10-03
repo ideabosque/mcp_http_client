@@ -139,6 +139,16 @@ class MCPHttpClient:
                         "input_schema": tool.input_schema,
                     }
                 )
+        elif llm_name == "openai":
+            for tool in tools:
+                tools_for_llm.append(
+                    {
+                        "type": "function",
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.input_schema,
+                    }
+                )
         else:
             raise MCPError("LLM not supported")
         return tools_for_llm
