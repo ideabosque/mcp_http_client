@@ -42,9 +42,7 @@ class MCPHttpClient:
         """Recursively remove attributes that are None or empty strings."""
         if isinstance(obj, dict):
             return {
-                k: self._clean_params(v)
-                for k, v in obj.items()
-                if v not in (None, "")
+                k: self._clean_params(v) for k, v in obj.items() if v not in (None, "")
             }
         elif isinstance(obj, list):
             return [self._clean_params(item) for item in obj]
@@ -155,7 +153,7 @@ class MCPHttpClient:
                         "input_schema": tool.input_schema,
                     }
                 )
-        elif llm_name == "openai":
+        elif llm_name == "gpt":
             for tool in tools:
                 tools_for_llm.append(
                     {
@@ -163,6 +161,20 @@ class MCPHttpClient:
                         "name": tool.name,
                         "description": tool.description,
                         "parameters": tool.input_schema,
+                    }
+                )
+        elif llm_name == "ollama":
+            for tool in tools:
+                tools_for_llm.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "parameters": tool.input_schema,
+                            }
+                        },
                     }
                 )
         else:
