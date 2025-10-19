@@ -26,6 +26,7 @@ class MCPHttpClient:
         self._initialized = False
 
     async def __aenter__(self):
+        # Create session optimized for AWS Lambda
         self.session = aiohttp.ClientSession()
         await self.initialize()
         return self
