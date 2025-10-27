@@ -176,6 +176,16 @@ class MCPHttpClient:
                         },
                     }
                 )
+        elif llm_name == "travrse":
+            for tool in tools:
+                tools_for_llm.append(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "tool_type": "external",
+                        "parameters_schema": tool.input_schema,
+                    }
+                )
         else:
             raise MCPError("LLM not supported")
         return tools_for_llm
