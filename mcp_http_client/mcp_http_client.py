@@ -26,6 +26,7 @@ class MCPHttpClient:
         self._initialized = False
 
     async def __aenter__(self):
+        # Create session optimized for AWS Lambda
         self.session = aiohttp.ClientSession()
         await self.initialize()
         return self
@@ -173,6 +174,16 @@ class MCPHttpClient:
                             "description": tool.description,
                             "parameters": tool.input_schema,
                         },
+                    }
+                )
+        elif llm_name == "travrse":
+            for tool in tools:
+                tools_for_llm.append(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "tool_type": "external",
+                        "parameters_schema": tool.input_schema,
                     }
                 )
         else:
