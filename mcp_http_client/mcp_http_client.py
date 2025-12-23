@@ -182,7 +182,7 @@ class MCPHttpClient:
                     {
                         "name": tool.name,
                         "description": tool.description,
-                        "tool_type": "external",
+                        "tool_type": "local",
                         "parameters_schema": tool.input_schema,
                     }
                 )
