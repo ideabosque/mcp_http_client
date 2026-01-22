@@ -49,6 +49,149 @@ class MCPHttpClient:
             return [self._clean_params(item) for item in obj]
         return obj
 
+    def _to_snake_case(self, camel_str: str) -> str:
+        """Convert camelCase string to snake_case."""
+        import re
+
+        # Insert underscore before uppercase letters and convert to lowercase
+        snake_str = re.sub(r"(?<!^)(?=[A-Z])", "_", camel_str).lower()
+        return snake_str
+
+    def _normalize_schema_keywords(self, schema: Any) -> Any:
+        """
+        Recursively convert keyword values to proper data types in JSON Schema.
+        Handles nested arrays and objects.
+        Converts property keys from camelCase to snake_case.
+        """
+        if not isinstance(schema, dict):
+            return schema
+
+        normalized = {}
+
+        # Keywords that should be integers
+        integer_keywords = {
+            "minLength",
+            "maxLength",
+            "minItems",
+            "maxItems",
+            "minProperties",
+            "maxProperties",
+            "minContains",
+            "maxContains",
+        }
+
+        # Keywords that should be numbers (int or float)
+        number_keywords = {
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "multipleOf",
+        }
+
+        # Keywords that should be booleans
+        boolean_keywords = {"uniqueItems", "additionalProperties"}
+
+        # Keywords that should be decimals/numbers
+        decimal_keywords = {"default", "const"}
+
+        for key, value in schema.items():
+            # Convert to proper data type based on keyword
+            if key in integer_keywords:
+                if isinstance(value, int):
+                    normalized[key] = value
+                else:
+                    try:
+                        normalized[key] = int(value)
+                    except (ValueError, TypeError):
+                        normalized[key] = value
+            elif key in number_keywords:
+                if isinstance(value, (int, float)):
+                    normalized[key] = value
+                else:
+                    try:
+                        # Try int first, then float
+                        normalized[key] = (
+                            int(value)
+                            if isinstance(value, str) and value.isdigit()
+                            else float(value)
+                        )
+                    except (ValueError, TypeError):
+                        normalized[key] = value
+            elif key in decimal_keywords:
+                # Handle default and const values - convert if they are numeric strings
+                if isinstance(value, (int, float)):
+                    normalized[key] = value
+                elif isinstance(value, str):
+                    try:
+                        # Try to convert to number if it's a numeric string
+                        normalized[key] = (
+                            int(value) if value.isdigit() else float(value)
+                        )
+                    except (ValueError, TypeError):
+                        # Keep as string if conversion fails
+                        normalized[key] = value
+                else:
+                    # Keep the value as-is for other types (bool, list, dict, etc.)
+                    normalized[key] = value
+            elif key in boolean_keywords:
+                if isinstance(value, str):
+                    normalized[key] = value.lower() in ("true", "1", "yes")
+                elif isinstance(value, bool):
+                    normalized[key] = value
+                else:
+                    try:
+                        normalized[key] = bool(value)
+                    except (ValueError, TypeError):
+                        normalized[key] = value
+            # Recursive handling for nested structures
+            elif key == "properties" and isinstance(value, dict):
+                # Recursively normalize each property schema and convert keys to snake_case
+                normalized[key] = {
+                    self._to_snake_case(prop_name): self._normalize_schema_keywords(
+                        prop_schema
+                    )
+                    for prop_name, prop_schema in value.items()
+                }
+            elif key == "items" and isinstance(value, dict):
+                # Recursively normalize array item schema
+                normalized[key] = self._normalize_schema_keywords(value)
+            elif key == "additionalItems" and isinstance(value, dict):
+                # Recursively normalize additional items schema
+                normalized[key] = self._normalize_schema_keywords(value)
+            elif key == "patternProperties" and isinstance(value, dict):
+                # Recursively normalize pattern properties
+                normalized[key] = {
+                    pattern: self._normalize_schema_keywords(prop_schema)
+                    for pattern, prop_schema in value.items()
+                }
+            elif key == "contains" and isinstance(value, dict):
+                # Recursively normalize contains schema
+                normalized[key] = self._normalize_schema_keywords(value)
+            elif key == "allOf" and isinstance(value, list):
+                # Recursively normalize allOf schemas
+                normalized[key] = [
+                    self._normalize_schema_keywords(item) for item in value
+                ]
+            elif key == "anyOf" and isinstance(value, list):
+                # Recursively normalize anyOf schemas
+                normalized[key] = [
+                    self._normalize_schema_keywords(item) for item in value
+                ]
+            elif key == "oneOf" and isinstance(value, list):
+                # Recursively normalize oneOf schemas
+                normalized[key] = [
+                    self._normalize_schema_keywords(item) for item in value
+                ]
+            elif key == "not" and isinstance(value, dict):
+                # Recursively normalize not schema
+                normalized[key] = self._normalize_schema_keywords(value)
+            else:
+                # Keep other values as-is
+                normalized[key] = value
+
+        return normalized
+
     async def _send_request(self, method: str, params: Optional[Dict] = None) -> Dict:
         if not self.session:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -142,7 +285,9 @@ class MCPHttpClient:
                     {
                         "name": tool.name,
                         "description": tool.description,
-                        "parameters": tool.input_schema,
+                        "parameters": self._normalize_schema_keywords(
+                            tool.input_schema
+                        ),
                     }
                 )
         elif llm_name == "claude":
@@ -151,7 +296,9 @@ class MCPHttpClient:
                     {
                         "name": tool.name,
                         "description": tool.description,
-                        "input_schema": tool.input_schema,
+                        "input_schema": self._normalize_schema_keywords(
+                            tool.input_schema
+                        ),
                     }
                 )
         elif llm_name == "gpt":
@@ -161,7 +308,9 @@ class MCPHttpClient:
                         "type": "function",
                         "name": tool.name,
                         "description": tool.description,
-                        "parameters": tool.input_schema,
+                        "parameters": self._normalize_schema_keywords(
+                            tool.input_schema
+                        ),
                     }
                 )
         elif llm_name == "ollama":
@@ -172,7 +321,9 @@ class MCPHttpClient:
                         "function": {
                             "name": tool.name,
                             "description": tool.description,
-                            "parameters": tool.input_schema,
+                            "parameters": self._normalize_schema_keywords(
+                                tool.input_schema
+                            ),
                         },
                     }
                 )
@@ -183,7 +334,9 @@ class MCPHttpClient:
                         "name": tool.name,
                         "description": tool.description,
                         "tool_type": "local",
-                        "parameters_schema": tool.input_schema,
+                        "parameters_schema": self._normalize_schema_keywords(
+                            tool.input_schema
+                        ),
                     }
                 )
         else:
