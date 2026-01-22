@@ -9,8 +9,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import aiohttp
-
-from silvaengine_utility import convert_decimal_to_number
+from silvaengine_utility import Debugger, convert_decimal_to_number
 
 from .models import MCPPrompt, MCPResource, MCPTool
 
@@ -123,6 +122,13 @@ class MCPHttpClient:
             await self.initialize()
 
         result = await self._send_request("tools/list")
+
+        Debugger.info(
+            variable=result,
+            stage=f"{__name__}.list_tools",
+            delimiter="=",
+        )
+
         return [
             MCPTool(
                 name=tool["name"],
