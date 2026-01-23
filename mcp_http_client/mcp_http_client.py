@@ -266,12 +266,6 @@ class MCPHttpClient:
 
         result = await self._send_request("tools/list")
 
-        Debugger.info(
-            variable=result,
-            stage=f"{__name__}.list_tools",
-            delimiter="=",
-        )
-
         return [
             MCPTool(
                 name=tool["name"],
