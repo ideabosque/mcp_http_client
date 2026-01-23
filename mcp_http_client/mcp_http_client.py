@@ -270,7 +270,7 @@ class MCPHttpClient:
             MCPTool(
                 name=tool["name"],
                 description=tool["description"],
-                input_schema=tool["inputSchema"],
+                input_schema=tool.get("input_schema", tool.get("inputSchema", {})),
             )
             for tool in result.get("tools", [])
         ]
