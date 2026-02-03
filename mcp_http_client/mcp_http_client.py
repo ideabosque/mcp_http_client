@@ -346,15 +346,22 @@ class MCPHttpClient:
     async def call_tool(
         self, name: str, arguments: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
-        if not self._initialized:
-            await self.initialize()
+        try:
+            if not self._initialized:
+                await self.initialize()
 
-        params = {"name": name}
-        if arguments:
-            params["arguments"] = arguments
+            params = {"name": name}
 
-        result = await self._send_request("tools/call", params)
-        return result.get("content", [])
+            if arguments:
+                params["arguments"] = arguments
+
+            result = await self._send_request("tools/call", params)
+            return result.get("content", [])
+        except Exception as e:
+            Debugger.info(
+                variable=f"Error: {str(e)}, Params: {params}, Details: {e}",
+                stage=f"{__file__}.call_tool",
+            )
 
     async def list_resources(self) -> List[MCPResource]:
         if not self._initialized:
