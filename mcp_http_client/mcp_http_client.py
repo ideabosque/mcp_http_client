@@ -201,7 +201,7 @@ class MCPHttpClient:
             "method": method,
         }
         if params:
-            cleaned_params = self._clean_params(params)
+            request_data["params"] = self._clean_params(params)
             # if cleaned_params:
             #     request_data["params"] = convert_decimal_to_number(cleaned_params)
 
