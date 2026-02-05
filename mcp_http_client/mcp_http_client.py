@@ -201,9 +201,10 @@ class MCPHttpClient:
             "method": method,
         }
         if params:
-            request_data["params"] = self._clean_params(params)
-            # if cleaned_params:
-            #     request_data["params"] = convert_decimal_to_number(cleaned_params)
+            cleaned_params = self._clean_params(params)
+
+            if cleaned_params:
+                request_data["params"] = convert_decimal_to_number(cleaned_params)
 
         headers = {
             "Content-Type": "application/json",
@@ -215,7 +216,7 @@ class MCPHttpClient:
         try:
             async with self.session.post(
                 self.base_url,
-                json=Serializer.json_dumps(request_data),
+                json=request_data,
                 headers=headers,
             ) as response:
                 response.raise_for_status()
