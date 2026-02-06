@@ -9,7 +9,12 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import aiohttp
-from silvaengine_utility import Debugger, Serializer, convert_decimal_to_number
+from silvaengine_utility import (
+    Debugger,
+    Serializer,
+    convert_data_types,
+    convert_decimal_to_number,
+)
 
 from .models import MCPPrompt, MCPResource, MCPTool
 
@@ -204,7 +209,7 @@ class MCPHttpClient:
             cleaned_params = self._clean_params(params)
 
             if cleaned_params:
-                request_data["params"] = convert_decimal_to_number(cleaned_params)
+                request_data["params"] = convert_data_types(cleaned_params)
 
         headers = {
             "Content-Type": "application/json",
