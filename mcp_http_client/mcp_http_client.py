@@ -191,6 +191,42 @@ class MCPHttpClient:
 
         return normalized
 
+    def _parse_sse_response(self, text: str) -> Dict:
+        """Extract the JSON-RPC payload from an SSE (text/event-stream) response.
+
+        An SSE response is a sequence of events whose payload is carried in one
+        or more ``data:`` lines. The last JSON object found is returned, since a
+        single JSON-RPC response is delivered per request.
+        """
+        result: Optional[Dict] = None
+        data_lines: List[str] = []
+
+        for line in text.splitlines():
+            if line.startswith("data:"):
+                data_lines.append(line[len("data:") :].strip())
+            elif line.strip() == "" and data_lines:
+                # Blank line terminates an event; try to decode accumulated data.
+                payload = "\n".join(data_lines)
+                data_lines = []
+                try:
+                    result = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+
+        # Handle a trailing event that is not followed by a blank line.
+        if data_lines:
+            payload = "\n".join(data_lines)
+            try:
+                result = json.loads(payload)
+            except json.JSONDecodeError:
+                pass
+
+        if result is None:
+            raise MCPConnectionError(
+                f"Failed to parse SSE response. Response body: {text[:500]}..."
+            )
+        return result
+
     async def _send_request(self, method: str, params: Optional[Dict] = None) -> Dict:
         if not self.session:
             raise RuntimeError("Client not initialized. Use async context manager.")
@@ -207,6 +243,10 @@ class MCPHttpClient:
 
         headers = {
             "Content-Type": "application/json",
+            # MCP Streamable HTTP transport requires the client to advertise that
+            # it accepts both JSON and SSE responses, otherwise servers such as
+            # Firecrawl reject the request with 406 Not Acceptable.
+            "Accept": "application/json, text/event-stream",
             **self.custom_headers,
         }
         if self.bearer_token:
@@ -220,21 +260,29 @@ class MCPHttpClient:
             ) as response:
                 response.raise_for_status()
 
-                # Try to parse as JSON regardless of content-type header
-                # Some servers return JSON with incorrect content-type headers
-                try:
-                    result = await response.json()
-                except aiohttp.ContentTypeError:
-                    # If JSON parsing fails due to content-type, try parsing text as JSON
+                content_type = response.headers.get("content-type", "")
+
+                # MCP Streamable HTTP servers may answer with an SSE stream
+                # (text/event-stream) instead of a plain JSON body. In that case
+                # the JSON-RPC payload is carried in the "data:" lines.
+                if "text/event-stream" in content_type:
+                    response_text = await response.text()
+                    result = self._parse_sse_response(response_text)
+                else:
+                    # Try to parse as JSON regardless of content-type header
+                    # Some servers return JSON with incorrect content-type headers
                     try:
-                        response_text = await response.text()
-                        result = json.loads(response_text)
-                    except json.JSONDecodeError:
-                        content_type = response.headers.get("content-type", "")
-                        raise MCPConnectionError(
-                            f"Server returned non-JSON response (content-type: {content_type}). "
-                            f"Response body: {response_text[:500]}..."
-                        )
+                        result = await response.json()
+                    except aiohttp.ContentTypeError:
+                        # If JSON parsing fails due to content-type, try parsing text as JSON
+                        try:
+                            response_text = await response.text()
+                            result = json.loads(response_text)
+                        except json.JSONDecodeError:
+                            raise MCPConnectionError(
+                                f"Server returned non-JSON response (content-type: {content_type}). "
+                                f"Response body: {response_text[:500]}..."
+                            )
 
                 if "error" in result:
                     raise MCPError(
