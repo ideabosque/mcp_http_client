@@ -264,7 +264,19 @@ class MCPHttpClient:
                 json=request_data,
                 headers=headers,
             ) as response:
-                response.raise_for_status()
+                # Surface 4xx/5xx with the response body included, so the
+                # caller can see what the remote actually rejected — not just
+                # the HTTP status line that aiohttp.raise_for_status yields.
+                if response.status >= 400:
+                    try:
+                        err_body = await response.text()
+                    except Exception:
+                        err_body = "<unable to read response body>"
+                    raise MCPConnectionError(
+                        f"MCP server returned HTTP {response.status} "
+                        f"{response.reason!r} for POST {self.base_url} "
+                        f"(method={method!r}). Response body: {err_body[:1500]}"
+                    )
 
                 content_type = response.headers.get("content-type", "")
 
