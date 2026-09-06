@@ -25,13 +25,21 @@ class MCPHttpClient:
         self.base_url = setting["base_url"].rstrip("/")
         self.bearer_token = setting.get("bearer_token")
         self.custom_headers = setting.get("headers", {})
+        # Total request timeout in seconds. Prevents indefinite hangs when an
+        # MCP server is slow or stuck (e.g. a backend git-refresh triggered by
+        # run_command). Callers can override per-call via the ``timeout``
+        # parameter on call_tool / _send_request.
+        self._timeout = float(setting.get("timeout", 90))
         self.session: Optional[aiohttp.ClientSession] = None
         self._request_id = 0
         self._initialized = False
 
     async def __aenter__(self):
-        # Create session optimized for AWS Lambda
-        self.session = aiohttp.ClientSession()
+        # Create session with a total timeout so a hung server connection
+        # fails fast instead of waiting aiohttp's default 5 minutes.
+        self.session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=self._timeout)
+        )
         await self.initialize()
         return self
 
@@ -232,9 +240,23 @@ class MCPHttpClient:
             )
         return result
 
-    async def _send_request(self, method: str, params: Optional[Dict] = None) -> Dict:
+    async def _send_request(
+        self,
+        method: str,
+        params: Optional[Dict] = None,
+        timeout: Optional[float] = None,
+    ) -> Dict:
         if not self.session:
             raise RuntimeError("Client not initialized. Use async context manager.")
+
+        # Per-call timeout override. When None, the session-level timeout
+        # (self._timeout) set at __aenter__ time applies. When a caller needs
+        # a longer budget for a specific operation (e.g. run_command), it
+        # passes an explicit value here and a fresh ClientTimeout is applied
+        # to this single POST.
+        request_timeout = (
+            aiohttp.ClientTimeout(total=timeout) if timeout is not None else None
+        )
 
         request_data = {
             "jsonrpc": "2.0",
@@ -263,6 +285,7 @@ class MCPHttpClient:
                 self.base_url,
                 json=request_data,
                 headers=headers,
+                timeout=request_timeout,
             ) as response:
                 # Surface 4xx/5xx with the response body included, so the
                 # caller can see what the remote actually rejected — not just
@@ -410,18 +433,20 @@ class MCPHttpClient:
         return tools_for_llm
 
     async def call_tool(
-        self, name: str, arguments: Optional[Dict[str, Any]] = None
+        self,
+        name: str,
+        arguments: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> List[Dict]:
         try:
             if not self._initialized:
                 await self.initialize()
 
             params = {"name": name}
-
             if arguments:
                 params["arguments"] = arguments
 
-            result = await self._send_request("tools/call", params)
+            result = await self._send_request("tools/call", params, timeout=timeout)
             return result.get("content", [])
         except Exception as e:
             Debugger.info(
